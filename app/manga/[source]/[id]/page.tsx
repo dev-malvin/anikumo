@@ -8,7 +8,9 @@ import Navbar from '@/components/Navbar'
 import { mangaApi, type MangaInfo, type Chapter } from '@/lib/api'
 
 export default function MangaInfoPage() {
-  const { source, id } = useParams<{ source: string; id: string }>()
+  const { source: mangaId } = useParams<{ source: string; id: string }>()
+  // Route is /manga/[source]/[id] but we repurpose [source] as the manga id
+  const id = mangaId
   const [manga, setManga] = useState<MangaInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [expandDesc, setExpandDesc] = useState(false)
@@ -17,15 +19,18 @@ export default function MangaInfoPage() {
   const [loadingPages, setLoadingPages] = useState(false)
 
   useEffect(() => {
-    mangaApi.info(source, decodeURIComponent(id)).then(setManga).catch(() => {}).finally(() => setLoading(false))
-  }, [source, id])
+    mangaApi.info(decodeURIComponent(id))
+      .then(res => setManga(res.data || null))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [id])
 
   const openChapter = async (chapter: Chapter) => {
     setReadingChapter(chapter)
     setLoadingPages(true)
     setPages([])
     try {
-      const data = await mangaApi.pages(source, chapter.id)
+      const data = await mangaApi.pages(id, chapter.id)
       setPages(Array.isArray(data) ? data : [])
     } catch { setPages([]) }
     finally { setLoadingPages(false) }

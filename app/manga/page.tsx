@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Search, BookOpen } from 'lucide-react'
 import Navbar from '@/components/Navbar'
-import { mangaApi, type Manga } from '@/lib/api'
+import { mangaApi, type Manga, type AtsuHome } from '@/lib/api'
 
 function MangaCard({ manga }: { manga: Manga }) {
   return (
     <Link
-      href={`/manga/${manga.source || 'atsumaru'}/${encodeURIComponent(manga.id)}`}
+      href={`/manga/${encodeURIComponent(manga.id)}`}
       className="group flex flex-col shrink-0 rounded-xl overflow-hidden bg-surface hover:ring-2 hover:ring-purple/60 transition-all duration-200 w-36 md:w-40"
     >
       <div className="relative aspect-[2/3] overflow-hidden">
@@ -54,14 +54,17 @@ function MangaRow({ title, items, loading }: { title: string; items: Manga[]; lo
 }
 
 export default function MangaPage() {
-  const [home, setHome] = useState<{ popular?: Manga[]; latest?: Manga[]; trending?: Manga[] }>({})
+  const [home, setHome] = useState<AtsuHome>({})
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Manga[]>([])
   const [searching, setSearching] = useState(false)
 
   useEffect(() => {
-    mangaApi.home().then(setHome).catch(() => {}).finally(() => setLoading(false))
+    mangaApi.home()
+      .then(res => setHome(res.data || {}))
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -70,7 +73,7 @@ export default function MangaPage() {
     setSearching(true)
     try {
       const data = await mangaApi.search(query)
-      setResults(data.results || [])
+      setResults(data.data?.items || [])
     } catch { setResults([]) }
     finally { setSearching(false) }
   }
@@ -112,9 +115,11 @@ export default function MangaPage() {
 
         {/* Home rows */}
         <div className="space-y-10">
-          <MangaRow title="Trending" items={home.trending || []} loading={loading} />
-          <MangaRow title="Popular" items={home.popular || []} loading={loading} />
-          <MangaRow title="Latest Updates" items={home.latest || []} loading={loading} />
+          <MangaRow title="Trending" items={home.trending_carousel?.items || []} loading={loading} />
+          <MangaRow title="Popular" items={home.popular?.items || []} loading={loading} />
+          <MangaRow title="Hot Updates" items={home.hot_updates?.items || []} loading={loading} />
+          <MangaRow title="Top Rated" items={home.top_rated?.items || []} loading={loading} />
+          <MangaRow title="Recently Updated" items={home.recently_updated?.items || []} loading={loading} />
         </div>
       </div>
     </main>

@@ -48,16 +48,17 @@ export const animeApi = {
 
 // ─── Manga (manga-vault) ────────────────────────────────────────────────────
 
+// manga-vault uses atsu provider — the only fully working one
+// Endpoints: /atsu/home, /atsu/search?keyword=, /atsu/manga/{id}/details, /atsu/manga/{mangaId}/chapter/{chapterId}/images
 export const mangaApi = {
-  home: () => get<MangaHome>(`${MANGA_API}/home`),
-  search: (q: string, source: string = 'atsumaru') =>
-    get<{ results: Manga[] }>(`${MANGA_API}/search/${source}?q=${encodeURIComponent(q)}`),
-  info: (source: string, id: string) =>
-    get<MangaInfo>(`${MANGA_API}/manga/${source}/${encodeURIComponent(id)}`),
-  chapters: (source: string, id: string) =>
-    get<Chapter[]>(`${MANGA_API}/chapters/${source}/${encodeURIComponent(id)}`),
-  pages: (source: string, chapterId: string) =>
-    get<string[]>(`${MANGA_API}/pages/${source}/${encodeURIComponent(chapterId)}`),
+  home: () =>
+    get<{ success: boolean; data: AtsuHome }>(`${MANGA_API}/atsu/home`),
+  search: (keyword: string) =>
+    get<{ success: boolean; data: { items: Manga[] } }>(`${MANGA_API}/atsu/search?keyword=${encodeURIComponent(keyword)}`),
+  info: (id: string) =>
+    get<{ success: boolean; data: MangaInfo }>(`${MANGA_API}/atsu/manga/${encodeURIComponent(id)}/details`),
+  pages: (mangaId: string, chapterId: string) =>
+    get<string[]>(`${MANGA_API}/atsu/manga/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(chapterId)}/images`),
 }
 
 // ─── Music (animethemes.moe) ────────────────────────────────────────────────
@@ -202,31 +203,46 @@ export interface ScheduleItem {
 
 export interface Manga {
   id: string
+  slug?: string
   title: string
   cover?: string
-  source?: string
+  type?: string
   status?: string
-  genres?: string[]
-  latestChapter?: string
+  year?: number
+  isAdult?: boolean
+  url?: string
 }
 
-export interface MangaHome {
-  popular?: Manga[]
-  latest?: Manga[]
-  trending?: Manga[]
+// atsu /home response shape
+export interface AtsuHome {
+  trending_carousel?: { title: string; items: Manga[] }
+  most_bookmarked?: { title: string; items: Manga[] }
+  hot_updates?: { title: string; items: Manga[] }
+  recently_updated?: { title: string; items: Manga[] }
+  top_rated?: { title: string; items: Manga[] }
+  popular?: { title: string; items: Manga[] }
+  recently_added?: { title: string; items: Manga[] }
 }
 
-export interface MangaInfo extends Manga {
-  description?: string
-  author?: string
+export interface MangaInfo {
+  id: string
+  title: string
+  cover?: string
+  type?: string
+  views?: number
+  released?: string
+  scanlators?: string[]
+  chapter_count?: number
   chapters?: Chapter[]
 }
 
 export interface Chapter {
   id: string
+  number: number
   title?: string
-  number?: string | number
-  date?: string
+  scanId?: string
+  pageCount?: number
+  url?: string
 }
 
 export interface ThemeSearch {

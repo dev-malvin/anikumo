@@ -4,7 +4,8 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Search, X, Menu, Home, Compass, BookOpen, Music, User, LogIn } from 'lucide-react'
-import { useSession, signOut } from '@/lib/auth-client'
+import useSWR from 'swr'
+import { signOut } from '@/lib/auth-client'
 import { animeApi, titleOf, coverOf } from '@/lib/api'
 
 const NAV_LINKS = [
@@ -17,7 +18,7 @@ const NAV_LINKS = [
 export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { data: session } = useSession()
+  const { data: session } = useSWR('/api/auth/session', (url) => fetch(url).then(r => r.ok ? r.json() : null), { revalidateOnFocus: false })
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [suggestions, setSuggestions] = useState<any[]>([])
@@ -101,14 +102,14 @@ export default function Navbar() {
               <Search size={20} />
             </button>
 
-            {session?.user ? (
+            {session ? (
               <div className="relative group">
                 <Link href="/profile">
                   <div className="w-8 h-8 rounded-full bg-purple flex items-center justify-center text-white text-sm font-semibold overflow-hidden">
-                    {session.user.image ? (
-                      <img src={session.user.image} alt={session.user.name || ''} className="w-full h-full object-cover" />
+                    {session.image ? (
+                      <img src={session.image} alt={session.name || ''} className="w-full h-full object-cover" />
                     ) : (
-                      (session.user.name || session.user.email || 'U')[0].toUpperCase()
+                      (session.name || session.email || 'U')[0].toUpperCase()
                     )}
                   </div>
                 </Link>
@@ -117,7 +118,7 @@ export default function Navbar() {
                     <User size={15} /> Profile
                   </Link>
                   <button
-                    onClick={() => signOut()}
+                    onClick={() => signOut().then(() => window.location.reload())}
                     className="w-full flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground hover:text-white hover:bg-white/5 transition-colors"
                   >
                     Sign Out

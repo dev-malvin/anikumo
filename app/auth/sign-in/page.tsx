@@ -19,15 +19,15 @@ export default function SignInPage() {
     setLoading(true)
     setError('')
     try {
-      const res = await signIn.email({ email, password })
-      if ((res as any).error) { setError((res as any).error.message || 'Invalid credentials'); return }
+      const res = await signIn(email, password)
+      if (res.error) { setError(res.error); return }
       router.push('/')
     } catch { setError('Sign in failed. Please try again.') }
     finally { setLoading(false) }
   }
 
   const handleSocial = async (provider: 'google' | 'github') => {
-    await signIn.social({ provider, callbackURL: '/' })
+    window.location.href = `/api/auth/oauth/${provider}`
   }
 
   return (

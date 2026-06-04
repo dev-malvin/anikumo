@@ -5,17 +5,20 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { LogOut, User, Mail, Calendar } from 'lucide-react'
 import Navbar from '@/components/Navbar'
-import { useSession, signOut } from '@/lib/auth-client'
+import useSWR from 'swr'
+import { signOut } from '@/lib/auth-client'
+
+const fetcher = (url: string) => fetch(url).then(r => r.ok ? r.json() : null)
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { data: session, isPending } = useSession()
+  const { data: session, isLoading } = useSWR('/api/auth/session', fetcher, { revalidateOnFocus: false })
 
   useEffect(() => {
-    if (!isPending && !session) router.push('/auth/sign-in')
-  }, [session, isPending, router])
+    if (!isLoading && !session) router.push('/auth/sign-in')
+  }, [session, isLoading, router])
 
-  if (isPending) return (
+  if (isLoading) return (
     <main className="min-h-screen bg-background">
       <Navbar />
       <div className="max-w-[1400px] mx-auto px-4 md:px-8 pt-24 pb-16 flex items-center justify-center">
@@ -26,8 +29,8 @@ export default function ProfilePage() {
 
   if (!session) return null
 
-  const { user } = session
-  const joinDate = new Date(user.createdAt || Date.now()).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  const user = session
+  const joinDate = new Date(Date.now()).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 
   return (
     <main className="min-h-screen bg-background">

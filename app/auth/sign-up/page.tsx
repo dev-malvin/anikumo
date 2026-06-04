@@ -20,15 +20,15 @@ export default function SignUpPage() {
     setLoading(true)
     setError('')
     try {
-      const res = await signUp.email({ name, email, password })
-      if ((res as any).error) { setError((res as any).error.message || 'Sign up failed'); return }
+      const res = await signUp(name, email, password)
+      if (res.error) { setError(res.error); return }
       router.push('/')
     } catch { setError('Sign up failed. Please try again.') }
     finally { setLoading(false) }
   }
 
   const handleSocial = async (provider: 'google' | 'github') => {
-    await signIn.social({ provider, callbackURL: '/' })
+    window.location.href = `/api/auth/oauth/${provider}`
   }
 
   return (

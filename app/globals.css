@@ -6,7 +6,7 @@
 
 @theme inline {
   --font-sans: var(--font-outfit), 'Outfit', sans-serif;
-  --font-display: var(--font-bebas), 'Bebas Neue', sans-serif;
+  --font-display: var(--font-bebas-neue), 'Bebas Neue', sans-serif;
   --font-mono: 'Geist Mono', 'Geist Mono Fallback';
 
   --color-background: var(--background);

@@ -6,8 +6,22 @@ const turso = createClient({
   authToken: process.env.TURSO_TOKEN,
 })
 
-// Minimal drizzle-like adapter using raw libsql
-// Better Auth supports a custom database adapter via its `database` option
+const socialProviders: Record<string, any> = {}
+
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  socialProviders.google = {
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  }
+}
+
+if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
+  socialProviders.github = {
+    clientId: process.env.GITHUB_CLIENT_ID,
+    clientSecret: process.env.GITHUB_CLIENT_SECRET,
+  }
+}
+
 export const auth = betterAuth({
   database: {
     type: 'sqlite',
@@ -17,16 +31,7 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    },
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-    },
-  },
+  socialProviders,
 })
 
 export type Session = typeof auth.$Infer.Session

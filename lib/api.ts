@@ -1,22 +1,10 @@
-// Server-side: use direct API URL. Client-side: use internal proxy to avoid CORS/origin issues.
-const isServer = typeof window === 'undefined'
-const ANIME_API = isServer
-  ? (process.env.ANIME_API_URL || 'https://muriro-api.vercel.app')
-  : '/api/anime'
+const ANIME_API = process.env.ANIME_API_URL || 'https://muriro-api.vercel.app'
 const STREAM_API = process.env.NEXT_PUBLIC_STREAM_API_URL || 'https://anikumo-api.vercel.app'
 const MANGA_API = process.env.NEXT_PUBLIC_MANGA_API_URL || 'https://manga-vault-main.vercel.app'
 const THEMES_API = 'https://api.animethemes.moe'
 
-// Server-side API key header for direct muriro-api calls
-const MURIRO_HEADERS: Record<string, string> = isServer && process.env.MURIRO_API_KEY
-  ? { 'x-api-key': process.env.MURIRO_API_KEY, 'origin': process.env.NEXT_PUBLIC_APP_URL || 'https://anikumo.vercel.app' }
-  : {}
-
-async function get<T>(url: string, extraHeaders?: Record<string, string>): Promise<T> {
-  const res = await fetch(url, {
-    headers: extraHeaders,
-    next: { revalidate: 300 },
-  })
+async function get<T>(url: string): Promise<T> {
+  const res = await fetch(url, { next: { revalidate: 300 } })
   if (!res.ok) throw new Error(`API error ${res.status}: ${url}`)
   return res.json()
 }
@@ -24,24 +12,24 @@ async function get<T>(url: string, extraHeaders?: Record<string, string>): Promi
 // ─── Anime (muriro-api) ─────────────────────────────────────────────────────
 
 export const animeApi = {
-  spotlight: () => get<{ results: Anime[] }>(`${ANIME_API}/spotlight`, MURIRO_HEADERS),
-  trending: () => get<{ results: Anime[] }>(`${ANIME_API}/trending`, MURIRO_HEADERS),
-  popular: () => get<{ results: Anime[] }>(`${ANIME_API}/popular`, MURIRO_HEADERS),
-  upcoming: () => get<{ results: Anime[] }>(`${ANIME_API}/upcoming`, MURIRO_HEADERS),
-  recent: () => get<{ results: Anime[] }>(`${ANIME_API}/recent`, MURIRO_HEADERS),
-  schedule: () => get<ScheduleDay[]>(`${ANIME_API}/schedule`, MURIRO_HEADERS),
+  spotlight: () => get<{ results: Anime[] }>(`${ANIME_API}/spotlight`),
+  trending: () => get<{ results: Anime[] }>(`${ANIME_API}/trending`),
+  popular: () => get<{ results: Anime[] }>(`${ANIME_API}/popular`),
+  upcoming: () => get<{ results: Anime[] }>(`${ANIME_API}/upcoming`),
+  recent: () => get<{ results: Anime[] }>(`${ANIME_API}/recent`),
+  schedule: () => get<ScheduleDay[]>(`${ANIME_API}/schedule`),
   search: (q: string, page = 1) =>
-    get<{ results: Anime[]; hasNextPage: boolean }>(`${ANIME_API}/search?q=${encodeURIComponent(q)}&page=${page}`, MURIRO_HEADERS),
+    get<{ results: Anime[]; hasNextPage: boolean }>(`${ANIME_API}/search?q=${encodeURIComponent(q)}&page=${page}`),
   suggest: (q: string) =>
-    get<Anime[]>(`${ANIME_API}/suggestions?q=${encodeURIComponent(q)}`, MURIRO_HEADERS),
+    get<Anime[]>(`${ANIME_API}/suggestions?q=${encodeURIComponent(q)}`),
   filter: (params: Record<string, string>) => {
     const qs = new URLSearchParams(params).toString()
-    return get<{ results: Anime[]; hasNextPage: boolean }>(`${ANIME_API}/filter?${qs}`, MURIRO_HEADERS)
+    return get<{ results: Anime[]; hasNextPage: boolean }>(`${ANIME_API}/filter?${qs}`)
   },
   info: (id: string | number) =>
-    get<AnimeInfo>(`${ANIME_API}/info/${id}`, MURIRO_HEADERS),
+    get<AnimeInfo>(`${ANIME_API}/info/${id}`),
   episodes: (id: string | number) =>
-    get<Episode[]>(`${ANIME_API}/episodes/${id}`, MURIRO_HEADERS),
+    get<Episode[]>(`${ANIME_API}/episodes/${id}`),
 }
 
 // ─── Streaming (anikumo-api) ────────────────────────────────────────────────

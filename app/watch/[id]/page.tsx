@@ -5,11 +5,9 @@ import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Settings, AlertCircle } from 'lucide-react'
 import Navbar from '@/components/Navbar'
-import { animeApi, streamApi, titleOf, type AnimeInfo, type Episode, type WatchData } from '@/lib/api'
+import { animeApi, PROVIDERS, titleOf, type AnimeInfo, type Episode, type EpisodesResponse, type WatchData } from '@/lib/api'
 
-const PROVIDERS = ['gogoanime', 'zoro', 'animepahu', 'allmanga', 'reanime']
-
-function VideoPlayer({ src, tracks }: { src: string; tracks?: WatchData['tracks'] }) {
+function VideoPlayer({ src, subtitles }: { src: string; subtitles?: WatchData['subtitles'] }) {
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
@@ -42,8 +40,8 @@ function VideoPlayer({ src, tracks }: { src: string; tracks?: WatchData['tracks'
       className="w-full aspect-video bg-black"
       playsInline
     >
-      {tracks?.map((t, i) => (
-        <track key={i} kind={(t.kind as any) || 'subtitles'} src={t.url} label={t.label || t.lang || 'Sub'} default={t.default} />
+      {subtitles?.map((s, i) => (
+        <track key={i} kind="subtitles" src={s.file} label={s.label} default={i === 0} />
       ))}
     </video>
   )
@@ -54,49 +52,68 @@ function WatchContent() {
   const searchParams = useSearchParams()
 
   const [anime, setAnime] = useState<AnimeInfo | null>(null)
-  const [episodes, setEpisodes] = useState<Episode[]>([])
+  const [epsData, setEpsData] = useState<EpisodesResponse | null>(null)
   const [currentEp, setCurrentEp] = useState(Number(searchParams.get('ep') || 1))
   const [type, setType] = useState<'sub' | 'dub'>('sub')
-  const [provider, setProvider] = useState(PROVIDERS[0])
+  const [provider, setProvider] = useState<string>(PROVIDERS[0])
   const [watchData, setWatchData] = useState<WatchData | null>(null)
   const [loadingStream, setLoadingStream] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [providerIdx, setProviderIdx] = useState(0)
 
+  // Load anime info + episodes on mount
   useEffect(() => {
     Promise.all([
       animeApi.info(id).catch(() => null),
-      animeApi.episodes(id).catch(() => []),
+      animeApi.episodes(id).catch(() => null),
     ]).then(([info, eps]) => {
       if (info) setAnime(info)
-      if (Array.isArray(eps)) setEpisodes(eps)
+      if (eps) setEpsData(eps)
     })
   }, [id])
 
+  // Get available providers from episode data
+  const availableProviders = epsData ? Object.keys(epsData.providers) : []
+
+  // Get episodes list for current provider + type
+  const episodes: Episode[] = epsData?.providers?.[provider]?.episodes?.[type] ?? []
+
+  // Step 2: fetch stream using full episode ID string from step 1
   useEffect(() => {
-    const load = async (pIdx = 0) => {
-      if (pIdx >= PROVIDERS.length) { setError('No stream available. Try another provider.'); setLoadingStream(false); return }
+    const loadStream = async () => {
+      // Try providers in order until one works
+      const providerOrder = availableProviders.length ? availableProviders : [...PROVIDERS]
       setLoadingStream(true)
       setError(null)
-      try {
-        const p = PROVIDERS[pIdx]
-        const data = await streamApi.watch(p, id, type, currentEp)
-        if (!data?.sources?.length) throw new Error('No sources')
-        setWatchData(data)
-        setProvider(p)
-        setProviderIdx(pIdx)
-      } catch {
-        load(pIdx + 1)
-      } finally {
-        setLoadingStream(false)
+
+      for (const p of providerOrder) {
+        const eps = epsData?.providers?.[p]?.episodes?.[type] ?? []
+        const ep = eps.find(e => e.number === currentEp)
+        if (!ep?.id) continue
+        try {
+          // ep.id is the full path e.g. "kiwi/178005/sub/animepahe-1"
+          // but the /watch/ route prefix is prepended in animeApi.watch()
+          const data = await animeApi.watch(ep.id)
+          if (data?.streams?.length) {
+            setWatchData(data)
+            setProvider(p)
+            setLoadingStream(false)
+            return
+          }
+        } catch {
+          continue
+        }
       }
+
+      setError('No stream available. Try another provider.')
+      setLoadingStream(false)
     }
-    load(0)
-  }, [id, currentEp, type])
+
+    if (epsData) loadStream()
+  }, [id, currentEp, type, epsData])
 
   const title = anime ? titleOf(anime) : 'Loading...'
   const ep = episodes.find(e => e.number === currentEp)
-  const src = watchData?.sources?.[0]?.url || ''
+  const src = watchData?.streams?.[0]?.url || ''
 
   const goEp = (n: number) => {
     if (n < 1 || n > episodes.length) return
@@ -138,7 +155,7 @@ function WatchContent() {
                   </div>
                 </div>
               ) : src ? (
-                <VideoPlayer src={src} tracks={watchData?.tracks} />
+                <VideoPlayer src={src} subtitles={watchData?.subtitles} />
               ) : (
                 <div className="aspect-video bg-surface" />
               )}
@@ -179,8 +196,8 @@ function WatchContent() {
               {/* Provider picker */}
               <div className="flex items-center gap-2 flex-wrap">
                 <Settings size={14} className="text-muted-foreground" />
-                {PROVIDERS.map((p, i) => (
-                  <button key={p} onClick={() => { setProviderIdx(i); setProvider(p) }}
+                {(availableProviders.length ? availableProviders : [...PROVIDERS]).map((p) => (
+                  <button key={p} onClick={() => setProvider(p)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${provider === p ? 'bg-purple/20 border-purple text-purple' : 'border-border text-muted-foreground hover:text-white hover:border-white/20'}`}>
                     {p}
                   </button>

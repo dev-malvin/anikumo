@@ -44,7 +44,8 @@ export default function Navbar() {
     debounceRef.current = setTimeout(async () => {
       try {
         const data = await animeApi.suggest(val)
-        setSuggestions(Array.isArray(data) ? data.slice(0, 7) : [])
+        const list = Array.isArray(data) ? data : (data as any)?.suggestions ?? []
+        setSuggestions(list.slice(0, 7))
       } catch { setSuggestions([]) }
     }, 280)
   }

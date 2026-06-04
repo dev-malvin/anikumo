@@ -1,5 +1,4 @@
 const ANIME_API = process.env.ANIME_API_URL || 'https://muriro-api.vercel.app'
-const STREAM_API = process.env.NEXT_PUBLIC_STREAM_API_URL || 'https://anikumo-api.vercel.app'
 const MANGA_API = process.env.NEXT_PUBLIC_MANGA_API_URL || 'https://manga-vault-main.vercel.app'
 const THEMES_API = 'https://api.animethemes.moe'
 
@@ -13,32 +12,38 @@ async function get<T>(url: string): Promise<T> {
 
 export const animeApi = {
   spotlight: () => get<{ results: Anime[] }>(`${ANIME_API}/spotlight`),
-  trending: () => get<{ results: Anime[] }>(`${ANIME_API}/trending`),
-  popular: () => get<{ results: Anime[] }>(`${ANIME_API}/popular`),
-  upcoming: () => get<{ results: Anime[] }>(`${ANIME_API}/upcoming`),
-  recent: () => get<{ results: Anime[] }>(`${ANIME_API}/recent`),
-  schedule: () => get<ScheduleDay[]>(`${ANIME_API}/schedule`),
-  search: (q: string, page = 1) =>
-    get<{ results: Anime[]; hasNextPage: boolean }>(`${ANIME_API}/search?q=${encodeURIComponent(q)}&page=${page}`),
-  suggest: (q: string) =>
-    get<Anime[]>(`${ANIME_API}/suggestions?q=${encodeURIComponent(q)}`),
+  trending: (page = 1, per_page = 20) =>
+    get<PaginatedResult<Anime>>(`${ANIME_API}/trending?page=${page}&per_page=${per_page}`),
+  popular: (page = 1, per_page = 20) =>
+    get<PaginatedResult<Anime>>(`${ANIME_API}/popular?page=${page}&per_page=${per_page}`),
+  upcoming: (page = 1, per_page = 20) =>
+    get<PaginatedResult<Anime>>(`${ANIME_API}/upcoming?page=${page}&per_page=${per_page}`),
+  recent: (page = 1, per_page = 20) =>
+    get<PaginatedResult<Anime>>(`${ANIME_API}/recent?page=${page}&per_page=${per_page}`),
+  schedule: (page = 1, per_page = 20) =>
+    get<PaginatedResult<ScheduleItem>>(`${ANIME_API}/schedule?page=${page}&per_page=${per_page}`),
+  search: (query: string, page = 1, per_page = 20) =>
+    get<PaginatedResult<Anime>>(`${ANIME_API}/search?query=${encodeURIComponent(query)}&page=${page}&per_page=${per_page}`),
+  suggest: (query: string) =>
+    get<{ suggestions: SuggestAnime[] }>(`${ANIME_API}/suggestions?query=${encodeURIComponent(query)}`),
   filter: (params: Record<string, string>) => {
     const qs = new URLSearchParams(params).toString()
-    return get<{ results: Anime[]; hasNextPage: boolean }>(`${ANIME_API}/filter?${qs}`)
+    return get<PaginatedResult<Anime>>(`${ANIME_API}/filter?${qs}`)
   },
   info: (id: string | number) =>
     get<AnimeInfo>(`${ANIME_API}/info/${id}`),
   episodes: (id: string | number) =>
-    get<Episode[]>(`${ANIME_API}/episodes/${id}`),
-}
-
-// ─── Streaming (anikumo-api) ────────────────────────────────────────────────
-
-export const streamApi = {
-  watch: (provider: string, id: string | number, type: 'sub' | 'dub', ep: number) =>
-    get<WatchData>(`${STREAM_API}/watch/${provider}/${id}/${type}/${ep}`),
-  map: (id: string | number) =>
-    get<IdMap>(`${STREAM_API}/map/${id}`),
+    get<EpisodesResponse>(`${ANIME_API}/episodes/${id}`),
+  // Watch: takes the full episode id string from episodes response
+  // e.g. "watch/kiwi/178005/sub/animepahe-1"  =>  GET /watch/kiwi/178005/sub/animepahe-1
+  watch: (episodeId: string) =>
+    get<WatchData>(`${ANIME_API}/watch/${episodeId}`),
+  characters: (id: string | number, page = 1) =>
+    get<{ results: Character[] }>(`${ANIME_API}/anime/${id}/characters?page=${page}&per_page=25`),
+  relations: (id: string | number) =>
+    get<{ results: Anime[] }>(`${ANIME_API}/anime/${id}/relations`),
+  recommendations: (id: string | number, page = 1) =>
+    get<{ results: Anime[] }>(`${ANIME_API}/anime/${id}/recommendations?page=${page}&per_page=10`),
 }
 
 // ─── Manga (manga-vault) ────────────────────────────────────────────────────
@@ -119,46 +124,80 @@ export interface Character {
   voiceActors?: { name: { full?: string }; image?: { medium?: string } }[]
 }
 
+export interface PaginatedResult<T> {
+  page: number
+  perPage: number
+  total: number
+  hasNextPage: boolean
+  results: T[]
+}
+
+export interface SuggestAnime {
+  id: number
+  title: string
+  title_romaji?: string
+  poster?: string
+  format?: string
+  status?: string
+  year?: number
+  episodes?: number
+}
+
+// Episodes response — providers keyed by name (kiwi, arc, zoro, etc.)
+export interface EpisodesResponse {
+  mappings?: { anilistId?: number; malId?: number; kitsuId?: number }
+  providers: Record<string, ProviderEpisodes>
+}
+
+export interface ProviderEpisodes {
+  episodes: {
+    sub?: Episode[]
+    dub?: Episode[]
+  }
+}
+
 export interface Episode {
-  id?: string | number
+  // Full episode ID string used directly as URL path e.g. "kiwi/178005/sub/animepahe-1"
+  id: string
   number: number
   title?: string
-  thumbnail?: string
-  isFiller?: boolean
+  image?: string
+  airDate?: string
+  duration?: number
+  description?: string
+  filler?: boolean
 }
 
 export interface WatchData {
-  sources?: StreamSource[]
-  tracks?: Track[]
+  streams?: StreamSource[]
+  subtitles?: Subtitle[]
   intro?: { start: number; end: number }
   outro?: { start: number; end: number }
 }
 
 export interface StreamSource {
   url: string
+  type?: string
   quality?: string
-  isM3U8?: boolean
 }
 
-export interface Track {
-  url: string
-  lang?: string
-  label?: string
-  kind?: string
-  default?: boolean
+export interface Subtitle {
+  file: string
+  label: string
 }
 
-export interface IdMap {
-  anilistId?: number
-  malId?: number
-  tvdbId?: number
-  tmdbId?: number
-}
-
-export interface ScheduleDay {
-  date?: string
-  day?: string
-  anime: Anime[]
+export interface ScheduleItem {
+  airingAt: number
+  timeUntilAiring: number
+  next_episode: number
+  id: number
+  title: { english?: string; romaji?: string; native?: string }
+  coverImage?: { large?: string; extraLarge?: string }
+  bannerImage?: string
+  format?: string
+  status?: string
+  genres?: string[]
+  averageScore?: number
 }
 
 export interface Manga {
@@ -236,7 +275,8 @@ export interface ThemeImage {
   link?: string
 }
 
-export const PROVIDERS = ['gogoanime', 'zoro', 'animepahu', 'allmanga', 'reanime'] as const
+// Providers available in muriro-api episodes response
+export const PROVIDERS = ['kiwi', 'arc', 'zoro', 'jet'] as const
 export type Provider = typeof PROVIDERS[number]
 
 export function titleOf(a: Anime | AnimeInfo): string {

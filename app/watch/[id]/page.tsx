@@ -90,9 +90,9 @@ function WatchContent() {
         const ep = eps.find(e => e.number === currentEp)
         if (!ep?.id) continue
         try {
-          // ep.id is the full path e.g. "kiwi/178005/sub/animepahe-1"
-          // but the /watch/ route prefix is prepended in animeApi.watch()
-          const data = await animeApi.watch(ep.id)
+          // ep.id is the raw episode id (e.g. "animepahe-1")
+          // watch(provider, anilistId, audio, episodeId) matches original Anikumo.watch()
+          const data = await animeApi.watch(p, id, type, ep.id)
           if (data?.streams?.length) {
             setWatchData(data)
             setProvider(p)

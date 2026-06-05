@@ -1,64 +1,59 @@
-const ANIME_API = process.env.ANIME_API_URL || 'https://muriro-api.vercel.app'
-const MANGA_API = process.env.NEXT_PUBLIC_MANGA_API_URL || 'https://manga-vault-main.vercel.app'
+// All anime + manga calls go through /api/anime proxy which sets Origin/Referer server-side
+const API = '/api/anime'
 const THEMES_API = 'https://api.animethemes.moe'
 
 async function get<T>(url: string): Promise<T> {
-  const res = await fetch(url, { next: { revalidate: 300 } })
+  const res = await fetch(url, { next: { revalidate: 60 } })
   if (!res.ok) throw new Error(`API error ${res.status}: ${url}`)
   return res.json()
 }
 
-// ─── Anime (muriro-api) ─────────────────────────────────────────────────────
+// ─── Anime (muriro-api via proxy) ───────────────────────────────────────────
+// Matches exact paths used in original anikumo2/js/api.js
 
 export const animeApi = {
-  spotlight: () => get<{ results: Anime[] }>(`${ANIME_API}/spotlight`),
+  spotlight: () =>
+    get<{ info: Anime[] }>(`${API}/spotlight`),
   trending: (page = 1, per_page = 20) =>
-    get<PaginatedResult<Anime>>(`${ANIME_API}/trending?page=${page}&per_page=${per_page}`),
+    get<PaginatedResult<Anime>>(`${API}/trending?page=${page}&per_page=${per_page}`),
   popular: (page = 1, per_page = 20) =>
-    get<PaginatedResult<Anime>>(`${ANIME_API}/popular?page=${page}&per_page=${per_page}`),
+    get<PaginatedResult<Anime>>(`${API}/popular?page=${page}&per_page=${per_page}`),
   upcoming: (page = 1, per_page = 20) =>
-    get<PaginatedResult<Anime>>(`${ANIME_API}/upcoming?page=${page}&per_page=${per_page}`),
+    get<PaginatedResult<Anime>>(`${API}/upcoming?page=${page}&per_page=${per_page}`),
   recent: (page = 1, per_page = 20) =>
-    get<PaginatedResult<Anime>>(`${ANIME_API}/recent?page=${page}&per_page=${per_page}`),
+    get<PaginatedResult<Anime>>(`${API}/recent?page=${page}&per_page=${per_page}`),
   schedule: (page = 1, per_page = 20) =>
-    get<PaginatedResult<ScheduleItem>>(`${ANIME_API}/schedule?page=${page}&per_page=${per_page}`),
+    get<PaginatedResult<ScheduleItem>>(`${API}/schedule?page=${page}&per_page=${per_page}`),
   search: (query: string, page = 1, per_page = 20) =>
-    get<PaginatedResult<Anime>>(`${ANIME_API}/search?query=${encodeURIComponent(query)}&page=${page}&per_page=${per_page}`),
+    get<PaginatedResult<Anime>>(`${API}/search?query=${encodeURIComponent(query)}&page=${page}&per_page=${per_page}`),
   suggest: (query: string) =>
-    get<{ suggestions: SuggestAnime[] }>(`${ANIME_API}/suggestions?query=${encodeURIComponent(query)}`),
+    get<{ suggestions: SuggestAnime[] }>(`${API}/suggestions?query=${encodeURIComponent(query)}`),
   filter: (params: Record<string, string>) => {
     const qs = new URLSearchParams(params).toString()
-    return get<PaginatedResult<Anime>>(`${ANIME_API}/filter?${qs}`)
+    return get<PaginatedResult<Anime>>(`${API}/filter?${qs}`)
   },
   info: (id: string | number) =>
-    get<AnimeInfo>(`${ANIME_API}/info/${id}`),
+    get<AnimeInfo>(`${API}/info/${id}`),
   episodes: (id: string | number) =>
-    get<EpisodesResponse>(`${ANIME_API}/episodes/${id}`),
-  // Watch: takes the full episode id string from episodes response
-  // e.g. "watch/kiwi/178005/sub/animepahe-1"  =>  GET /watch/kiwi/178005/sub/animepahe-1
-  watch: (episodeId: string) =>
-    get<WatchData>(`${ANIME_API}/watch/${episodeId}`),
-  characters: (id: string | number, page = 1) =>
-    get<{ results: Character[] }>(`${ANIME_API}/anime/${id}/characters?page=${page}&per_page=25`),
-  relations: (id: string | number) =>
-    get<{ results: Anime[] }>(`${ANIME_API}/anime/${id}/relations`),
-  recommendations: (id: string | number, page = 1) =>
-    get<{ results: Anime[] }>(`${ANIME_API}/anime/${id}/recommendations?page=${page}&per_page=10`),
+    get<EpisodesResponse>(`${API}/episodes/${id}`),
+  // provider + anilistId + audio + episodeId — matches Anikumo.watch() in api.js
+  watch: (provider: string, anilistId: string | number, audio: 'sub' | 'dub', episodeId: string) =>
+    get<WatchData>(`${API}/watch/${provider}/${anilistId}/${audio}/${episodeId}`),
 }
 
-// ─── Manga (manga-vault) ────────────────────────────────────────────────────
+// ─── Manga (manga-vault via proxy) ──────────────────────────────────────────
+// Proxied through /api/anime/manga/... → vaultapi-one.vercel.app
+// Matches vaultFetch() in original manga.js: fetchAPI('/manga' + path)
 
-// manga-vault uses atsu provider — the only fully working one
-// Endpoints: /atsu/home, /atsu/search?keyword=, /atsu/manga/{id}/details, /atsu/manga/{mangaId}/chapter/{chapterId}/images
 export const mangaApi = {
   home: () =>
-    get<{ success: boolean; data: AtsuHome }>(`${MANGA_API}/atsu/home`),
+    get<{ success: boolean; data: AtsuHome }>(`${API}/manga/atsu/home`),
   search: (keyword: string) =>
-    get<{ success: boolean; data: { items: Manga[] } }>(`${MANGA_API}/atsu/search?keyword=${encodeURIComponent(keyword)}`),
+    get<{ success: boolean; data: { found: number; items: Manga[] } }>(`${API}/manga/atsu/search?keyword=${encodeURIComponent(keyword)}`),
   info: (id: string) =>
-    get<{ success: boolean; data: MangaInfo }>(`${MANGA_API}/atsu/manga/${encodeURIComponent(id)}/details`),
+    get<{ success: boolean; data: MangaInfo }>(`${API}/manga/atsu/manga/${encodeURIComponent(id)}/details`),
   pages: (mangaId: string, chapterId: string) =>
-    get<string[]>(`${MANGA_API}/atsu/manga/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(chapterId)}/images`),
+    get<string[]>(`${API}/manga/atsu/manga/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(chapterId)}/images`),
 }
 
 // ─── Music (animethemes.moe) ────────────────────────────────────────────────

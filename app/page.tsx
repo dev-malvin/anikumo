@@ -15,7 +15,7 @@ async function getHomeData() {
   ])
 
   return {
-    spotlight: spotlight.status === 'fulfilled' ? (spotlight.value?.results ?? []) : [],
+    spotlight: spotlight.status === 'fulfilled' ? (spotlight.value?.info ?? []) : [],
     trending: trending.status === 'fulfilled' ? (trending.value?.results ?? []) : [],
     popular: popular.status === 'fulfilled' ? (popular.value?.results ?? []) : [],
     upcoming: upcoming.status === 'fulfilled' ? (upcoming.value?.results ?? []) : [],
